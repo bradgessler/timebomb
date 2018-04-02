@@ -2,10 +2,129 @@ require "timebomb/version"
 require "yaml"
 require "thor"
 require "chronic"
+require "pathname"
+require "fileutils"
 
 module Timebomb
-  # class CLI < Thor::CLI
-  # end
+  class CLI < Thor
+    include FileUtils
+
+    DEFAULT_PATH = Pathname.new("./timebomb").freeze
+    DEFAULT_PATTERN = DEFAULT_PATH.join("**/**.tb").freeze
+    DEFAULT_DATE_FROM_NOW = "1 month from today"
+
+    default_task :report
+
+    desc "report PATH", "run a report for timebombs in PATH"
+    def report(path = DEFAULT_PATTERN)
+      suite = Suite.new
+      suite.load_files Dir.glob(path)
+      report = CLIReport.new suite
+      report.print $stdout
+      exit suite.has_exploded? ? 1 : 0
+    end
+
+    desc "init PATH", "initialize timebomb in project at PATH"
+    def init(path = DEFAULT_PATH)
+      mkdir path
+      puts "Timebomb project initialized at #{path}"
+    end
+
+    desc "create", "create a new timebomb"
+    long_desc <<-LONGDESC
+      `timebomb create` will create a `*.tb` file in the #{DEFAULT_PATH} directory.
+
+      A title is required via the `-t` flag. It should be a brief
+      sentence that gives the person in the future something actionable to do when
+      the timebomb blows up. More details and context can be provided in the description.
+
+      A date is required so the timebomb explodes on the given future date. The date is
+      parsed by a natrual language parser, so you can give absolute dates or relative dates
+      like:
+
+      > $ timebomb create -d "2 months from now" -t "Remove the feature"
+
+      > $ timebomb create -d "next year" -t "Remove the feature"
+
+      > $ timebomb create -d "tomorrow" -t "Remove the feature"
+
+      Absolute dates can be given too such as:
+
+      > $ timebomb create -d "Jan 14 2050" -t "Remove the feature"
+
+      > $ timebomb create -d "Sunday, June 13 at 7pm" -t "Remove the feature"
+
+      > $ timebomb create -d "2013-08-01T19:30:00.34-07:00" -t "Remove the feature"
+
+      You can optionally specify an extended description via the `-m` flag. The description
+      is meant to have all of the detail and context for why a timebomb was created and
+      what should be removed when it blows up.
+
+      > $ timebomb create -t "Remove the feature" -d "2 months from now" -m "Delete the Foo and Bar class"
+
+      Would create the file #{DEFAULT_PATH.join("remove_the_feature.tb")}
+    LONGDESC
+    option :title, required: true, aliases: :t
+    option :date, aliases: :d
+    option :description, aliases: :m
+    def create
+      title = options[:title]
+      date = Chronic.parse(options.fetch(:date, DEFAULT_DATE_FROM_NOW))
+      description = options[:description]
+
+
+      path = DEFAULT_PATH.join tb_file(title)
+      data = { "title" => title, "date" => date }
+
+      File.open(path, 'w') do |file|
+        file.puts data.to_yaml
+        file.puts "---"
+        file.puts
+        file.puts description
+
+      end
+
+      puts "Timebomb created at #{path}"
+    end
+
+    private
+      def underscore(title)
+        title.downcase.split(/\W/).reject{ |word| word == "" || word.nil? }.join("_")
+      end
+
+      def tb_file(title)
+        "#{underscore(title)}.tb"
+      end
+  end
+
+  class CLIReport
+    RED_COLOR_CODE = 31
+
+    attr_reader :suite
+
+    def initialize(suite)
+      @suite = suite
+    end
+
+    def print(out)
+      out.puts "Detected #{suite.timebombs.count} timebombs"
+      suite.timebombs.each do |tb|
+        out.puts timebomb_line(tb)
+      end
+      if suite.has_exploded?
+        out.puts "#{suite.exploded_timebombs.count} timebombs have exploded!"
+      end
+    end
+
+    private
+      def timebomb_line(tb)
+        [result(tb), tb.date, tb.title].join("\t")
+      end
+
+      def result(tb)
+        tb.has_exploded? ? " 💣 " : " 💥 "
+      end
+  end
 
   class Frontmatter
     DELIMITER = "---".freeze
@@ -24,13 +143,15 @@ module Timebomb
   end
 
   class Timebomb
-    attr_accessor :title, :date, :notes
+    attr_accessor :title, :date, :description
+
 
     def parse_data(data)
       frontmatter = Frontmatter.new(data)
       self.title = frontmatter.data.fetch("title")
       self.date = frontmatter.data.fetch("date")
-      self.notes = frontmatter.body
+      self.description = frontmatter.body
+
       self
     end
 
@@ -42,8 +163,8 @@ module Timebomb
       @date = date.is_a?(String) ? Chronic.parse(date) : date
     end
 
-    def has_exploded?(current_time: Timebomb.current_time)
-      self.date > current_time
+    def has_exploded?
+      self.date > ::Timebomb.current_time
     end
   end
 
@@ -54,8 +175,16 @@ module Timebomb
       end
     end
 
-    def has_exploded?(**args)
-      timebombs.any? { |bomb| bomb.has_exploded?(**args) }
+    def has_exploded?
+      exploded_timebombs.any?
+    end
+
+    def exploded_timebombs
+      timebombs.lazy.select(&:has_exploded?)
+    end
+
+    def unexploded_timebombs
+      timebombs.lazy.reject(&:has_exploded?)
     end
 
     def timebombs
