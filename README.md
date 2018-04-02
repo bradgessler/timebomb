@@ -1,5 +1,7 @@
 # Timebomb
 
+[![Build Status](https://travis-ci.org/bradgessler/timebomb.svg?branch=master)](https://travis-ci.org/bradgessler/timebomb) [![Maintainability](https://api.codeclimate.com/v1/badges/ca9b943b703e7023e6a5/maintainability)](https://codeclimate.com/github/bradgessler/timebomb/maintainability)
+
 Timebomb is a way for development teams to set reminders to remove or do things in their codebase by a certain date. Its best run in a CI server so that it "blows up" when a date is reached.
 
 ## Installation
