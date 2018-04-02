@@ -47,6 +47,12 @@ To check to see if any of the timebombs went off, run:
 
 If one went off, `timebomb` will return with a non-zero error code and details on the exceeded thresholds. If nothing went off then it will exit with 0. This is what you'd run on a CI server job.
 
+If a bomb goes off, you can bump it by running:
+
+    $ timebomb bump -d "2 weeks from now"
+
+and it will automatically bump any timebombs that have exploded by the amount you've specified.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
