@@ -6,10 +6,10 @@ end
 
 RSpec.describe Timebomb::Bomb do
   let(:path) { "spec/timebombs/remove-experiment.tb" }
+  let(:file) { Timebomb::BombFile.new(path) }
   let(:current_time) { Chronic.parse("Jan 1, 2010") }
   before { allow(::Timebomb).to receive(:current_time).and_return(current_time) }
-  before { subject.parse_file path }
-  subject { Timebomb::Bomb.new }
+  subject { file.tap(&:read).bomb }
   it "has date" do
     expect(subject.date).to eql(Chronic.parse("Jan 1, 2050"))
   end
@@ -20,16 +20,16 @@ RSpec.describe Timebomb::Bomb do
     expect(subject.description).to include("We put this in here to test some things and won't need it after 2050 rolls around.")
   end
   describe "#has_exploded?" do
-    context "Jan 1, 3000" do
-      let(:current_time) { Chronic.parse("Jan 1, 3000") }
-      it "has not exploded" do
-        expect(subject).not_to have_exploded
-      end
-    end
-    context "Jan 1, 2000" do
-      let(:current_time) { Chronic.parse("Jan 1, 2000") }
+    context "on Jan 1, 2100" do
+      let(:current_time) { Chronic.parse("Jan 1, 2100") }
       it "has exploded" do
         expect(subject).to have_exploded
+      end
+    end
+    context "on Jan 1, 2000" do
+      let(:current_time) { Chronic.parse("Jan 1, 2000") }
+      it "has not exploded" do
+        expect(subject).to_not have_exploded
       end
     end
   end

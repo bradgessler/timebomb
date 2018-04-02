@@ -66,25 +66,34 @@ module Timebomb
       Would create the file #{DEFAULT_PATH.join("remove_the_feature.tb")}
     LONGDESC
     option :title, required: true, aliases: :t
-    option :date, aliases: :d
+    option :date, aliases: :d, default: DEFAULT_DATE_FROM_NOW
     option :description, aliases: :m
     def create
-      title = options[:title]
-      date = Chronic.parse(options.fetch(:date, DEFAULT_DATE_FROM_NOW))
-      description = options[:description]
-
-
-      path = DEFAULT_PATH.join tb_file(title)
-      data = { "title" => title, "date" => date }
-
-      File.open(path, 'w') do |file|
-        file.puts data.to_yaml
-        file.puts "---"
-        file.puts
-        file.puts description
+      path = DEFAULT_PATH.join tb_file(options[:title])
+      file = BombFile.new(path)
+      file.bomb.tap do |b|
+        b.title = options[:title]
+        b.description = options[:description]
+        b.date = options[:date]
       end
-
+      file.write
       puts "Timebomb created at #{path}"
+    end
+
+    desc "bump", "bumps all exploded timebombs to specified date"
+    option :date, aliases: :d, default: DEFAULT_DATE_FROM_NOW
+    def bump(path = DEFAULT_PATTERN)
+      date = options[:date]
+      suite = Suite.new
+      suite.load_files Dir.glob(path)
+      suite.timebomb_files.each do |file|
+        file.read
+        if file.bomb.has_exploded?
+          file.bomb.date = date
+          file.write
+          puts "Bumped #{file.path} to #{date}"
+        end
+      end
     end
 
     private
@@ -99,6 +108,8 @@ module Timebomb
 
   class CLIReport
     RED_COLOR_CODE = 31
+    EXPLODED_CHARACTER = "💥"
+    UNEXPLODED_CHARACTER = "💣"
 
     attr_reader :suite
 
@@ -109,7 +120,7 @@ module Timebomb
     def print(out)
       out.puts "Detected #{suite.timebombs.count} timebombs"
       suite.timebombs.each do |tb|
-        out.puts timebomb_line(tb)
+        out.puts row " #{explosion_symbol(tb)} ", format_date(tb.date), days_until(tb), tb.title
       end
       if suite.has_exploded?
         out.puts "#{suite.exploded_timebombs.count} timebombs have exploded!"
@@ -117,12 +128,25 @@ module Timebomb
     end
 
     private
-      def timebomb_line(tb)
-        [result(tb), tb.date, tb.title].join("\t")
+      def row(*columns)
+        columns.join("\t")
       end
 
-      def result(tb)
-        tb.has_exploded? ? " 💥 " : " 💣 "
+      def days_until(tb)
+        days = tb.days_difference
+        if days < 0
+          "Exploded #{-days.to_i} days ago"
+        else
+          "Explodes in #{days.to_i} days"
+        end
+      end
+
+      def explosion_symbol(tb)
+        tb.has_exploded? ? EXPLODED_CHARACTER : UNEXPLODED_CHARACTER
+      end
+
+      def format_date(date)
+        date.strftime "%b %e, %Y"
       end
   end
 
@@ -142,36 +166,61 @@ module Timebomb
     end
   end
 
+  # Handles reading and writing to a Timebomb file `*.tb`.
+  class BombFile
+    EXTENSION = ".tb".freeze
+
+    attr_reader :path, :bomb
+
+    def initialize(path)
+      @path = Pathname.new(path)
+      @bomb = Bomb.new
+    end
+
+    def read
+      File.open(path, 'r') do |file|
+        data = file.read
+        frontmatter = Frontmatter.new(data)
+        bomb.title = frontmatter.data.fetch("title")
+        bomb.date = frontmatter.data.fetch("date")
+        bomb.description = frontmatter.body
+      end
+    end
+
+    def write
+      data = { "title" => bomb.title, "date" => bomb.date }
+
+      File.open(path, 'w') do |file|
+        file.puts data.to_yaml
+        file.puts "---"
+        file.puts
+        file.puts bomb.description
+      end
+    end
+  end
+
   class Bomb
+    SECONDS_IN_DAY = 86400
+
     attr_accessor :title, :date, :description
-
-
-    def parse_data(data)
-      frontmatter = Frontmatter.new(data)
-      self.title = frontmatter.data.fetch("title")
-      self.date = frontmatter.data.fetch("date")
-      self.description = frontmatter.body
-
-      self
-    end
-
-    def parse_file(path)
-      parse_data File.read(path)
-    end
 
     def date=(date)
       @date = date.is_a?(String) ? Chronic.parse(date) : date
     end
 
     def has_exploded?
-      self.date > Timebomb.current_time
+      date < Timebomb.current_time
+    end
+
+    def days_difference
+      (date - Timebomb.current_time) / SECONDS_IN_DAY
     end
   end
 
   class Suite
     def load_files(paths)
       paths.each do |path|
-        self.timebombs << Bomb.new.parse_file(path)
+        self.timebomb_files << BombFile.new(path)
       end
     end
 
@@ -188,7 +237,14 @@ module Timebomb
     end
 
     def timebombs
-      @timebombs ||= []
+      timebomb_files.map do |file|
+        file.read
+        file.bomb
+      end
+    end
+
+    def timebomb_files
+      @timebomb_files ||= []
     end
   end
 
