@@ -30,6 +30,17 @@ Then create your first timebomb test:
 
     $ timebomb create --title "Remove the old feature" --date "2 months from now"
 
+This creates a file at `./timebombs/remove_the_old_feature.tb` which you can edit to add more context:
+
+```
+---
+title: Remove the old feature
+date: 2018-06-16 00:00:00.000000000 -07:00
+---
+
+We're running an experiment on this feature. The metrics team said if we don't get 1,000 users in 2 months we should just pull it.
+```
+
 To check to see if any of the timebombs went off, run:
 
     $ timebomb report

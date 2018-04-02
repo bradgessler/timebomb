@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Brad Gessler"]
   spec.email         = ["bradgessler@gmail.com"]
 
-  spec.summary       = %q{Blow up a CI server when a date is exceeded for a feature}
+  spec.summary       = %q{Blow up a CI server when its time to deprecate something or remove a feature.}
   spec.homepage      = "https://github.com/bradgessler/timebomb"
   spec.license       = "MIT"
 
