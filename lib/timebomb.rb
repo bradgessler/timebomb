@@ -122,7 +122,7 @@ module Timebomb
       end
 
       def result(tb)
-        tb.has_exploded? ? " 💣 " : " 💥 "
+        tb.has_exploded? ? " 💥 " : " 💣 "
       end
   end
 
