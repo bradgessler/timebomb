@@ -11,7 +11,7 @@ module Timebomb
 
     DEFAULT_PATH = Pathname.new("./timebomb").freeze
     DEFAULT_PATTERN = DEFAULT_PATH.join("**/**.tb").freeze
-    DEFAULT_DATE_FROM_NOW = "1 month from today"
+    DEFAULT_DATE_FROM_NOW = "1 month from today".freeze
 
     default_task :report
 
@@ -25,7 +25,8 @@ module Timebomb
     end
 
     desc "init PATH", "initialize timebomb in project at PATH"
-    def init(path = DEFAULT_PATH)
+    def init(path = ".")
+      path = Pathname.new(path).join(DEFAULT_PATH)
       mkdir path
       puts "Timebomb project initialized at #{path}"
     end
@@ -81,7 +82,6 @@ module Timebomb
         file.puts "---"
         file.puts
         file.puts description
-
       end
 
       puts "Timebomb created at #{path}"
