@@ -142,7 +142,7 @@ module Timebomb
     end
   end
 
-  class Timebomb
+  class Bomb
     attr_accessor :title, :date, :description
 
 
@@ -164,14 +164,14 @@ module Timebomb
     end
 
     def has_exploded?
-      self.date > ::Timebomb.current_time
+      self.date > Timebomb.current_time
     end
   end
 
   class Suite
     def load_files(paths)
       paths.each do |path|
-        self.timebombs << Timebomb.new.parse_file(path)
+        self.timebombs << Bomb.new.parse_file(path)
       end
     end
 

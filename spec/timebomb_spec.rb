@@ -4,12 +4,12 @@ RSpec.describe Timebomb do
   end
 end
 
-RSpec.describe Timebomb::Timebomb do
+RSpec.describe Timebomb::Bomb do
   let(:path) { "spec/timebombs/remove-experiment.tb" }
   let(:current_time) { Chronic.parse("Jan 1, 2010") }
   before { allow(::Timebomb).to receive(:current_time).and_return(current_time) }
   before { subject.parse_file path }
-  subject { Timebomb::Timebomb.new }
+  subject { Timebomb::Bomb.new }
   it "has date" do
     expect(subject.date).to eql(Chronic.parse("Jan 1, 2050"))
   end
